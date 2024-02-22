@@ -1,10 +1,8 @@
-TetrisASM
+FallingBlocksASM
 =========
 
-This is a version of tetris I've been writting to get used to assembly.
+This is a version of the falling blocks game I've been writting to learn and practice assembly.
 
-It isnt' fully working yet, and will probably be sometime before it is (PhD is getting in the way)
+It isnt' fully working yet, and will probably be sometime before it is (~~PhD~~ ~~Work~~ kids are getting in the way)
 
-I've only put two days into it so it is *very* rough.
-
-Compiles using NASM, and is designed to run using the "bootloader/OS" I am also workign on. 
+Compiles using NASM, and is designed to run using the "bootloader/OS" I ~~am~~ was also workign on. 
