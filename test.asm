@@ -55,8 +55,8 @@ _start:
 
     ; Loop until the user presses the correct key
     mov dword [current_frame], CHARACTER_FRAMES ; Start with the max frames to select a new key immediately
-    mov byte [row], 5
-    mov byte [col], 5
+    mov byte [row], 25
+    mov byte [col], 25
     main_loop:
         ; Check if the current frame count has reached the threshold to select a new key
         mov eax, [current_frame]
@@ -131,14 +131,17 @@ select_random_key:
 select_random_row_col:
     ; Store random value returned in ecx for use in row/col
     pushad
+
     mov ecx, row
     call get_random_byte
-    and byte [ecx], 9
-    add byte [ecx], 1      ; Shift to 1-10
+    and byte [ecx], 25
+    add byte [ecx], 1
+
     mov ecx, col
     call get_random_byte
-    and byte [ecx], 9
-    add byte [ecx], 1      ; Shift to 1-10
+    and byte [ecx], 50
+    add byte [ecx], 1
+
     popad
     ret
 
@@ -249,14 +252,22 @@ set_terminal_mode:
     ret
 
 move_cursor:
-    ; TODO: can only go up to 9, need to handle more rows/columns
     ; Format the position sequence with the current row and column
     mov eax, [row]
-    add eax, '0'
-    mov [POS_TEMPLATE + 3], al
+    mov dl, 10
+    div dl      ; Get quotient in al (tens) and remainder in ah (ones)
+    add al, '0'
+    add ah, '0'
+    mov [POS_TEMPLATE + 3], ah
+    mov [POS_TEMPLATE + 2], al
+
     mov eax, [col]
-    add eax, '0'
-    mov [POS_TEMPLATE + 6], al
+    mov dl, 10
+    div dl 
+    add al, '0'
+    add ah, '0'
+    mov [POS_TEMPLATE + 6], ah
+    mov [POS_TEMPLATE + 5], al
 
     ; Write the position sequence to move the cursor
     mov eax, SYS_WRITE
