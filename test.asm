@@ -23,7 +23,7 @@ section .data
     READ_ONLY equ 0
     CLOCK_REALTIME equ 0
     RANDOM_PATH db "/dev/urandom", 0
-    TIMEOUT_NS dd 0, 300000000   ; 100ms in nanoseconds
+    TIMEOUT_NS dd 0, 300000000
 
 section .bss
     key_pressed resb 1
@@ -35,36 +35,10 @@ section .bss
 section .text
     global _start
 
+
+
 _start:
-    ; Get the current terminal settings
-    mov eax, SYS_IOCTL
-    mov ebx, STDIN
-    mov ecx, TCGETS
-    mov edx, termios
-    int 0x80
-
-    ; Save the original settings for later restoration
-    mov esi, termios
-    mov edi, orig_termios
-    mov ecx, TERMIOS_SIZE
-    rep movsb
-
-    ; Modify the icanon and echo bits in the c_lflag of the buffer
-    mov eax, [termios + C_LFLAG_OFFSET]
-    and eax, 0xFFFFFFF5
-    mov [termios + C_LFLAG_OFFSET], eax
-
-    ; Set the VMIN and VTIME control characters to 0 for non-blocking read
-    mov byte [termios + C_CC_OFFSET + VMIN], 0
-    mov byte [termios + C_CC_OFFSET + VTIME], 0
-
-    ; Send ioctl to set the new terminal settings (non-canonical mode, no echo)
-    mov eax, SYS_IOCTL
-    mov ebx, STDIN
-    mov ecx, TCSETS
-    mov edx, termios
-    int 0x80
-
+    call set_terminal_mode
     ; Loop until q from read Keypress (sys_read)
     main_loop:
         call clear_screen
@@ -78,11 +52,8 @@ _start:
         jne main_loop
 
     ; Restore original terminal settings before exiting
-    mov eax, SYS_IOCTL
-    mov ebx, STDIN
-    mov ecx, TCSETS
     mov edx, orig_termios
-    int 0x80
+    call tcset
 
     ; Exit (sys_exit)
     mov eax, SYS_EXIT
@@ -154,3 +125,45 @@ get_random_byte:
     mov ebx, esi
     int 0x80
     ret
+
+tcget:
+    ; Get the current terminal settings into edx
+    mov eax, SYS_IOCTL
+    mov ebx, STDIN
+    mov ecx, TCGETS
+    int 0x80
+    ret
+
+tcset:
+    ; Set the terminal settings from edx
+    mov eax, SYS_IOCTL
+    mov ebx, STDIN
+    mov ecx, TCSETS
+    int 0x80
+    ret
+
+set_terminal_mode:
+    ; Get the current terminal settings
+    mov edx, termios
+    call tcget
+
+    ; Save the original settings for later restoration
+    mov esi, termios
+    mov edi, orig_termios
+    mov ecx, TERMIOS_SIZE
+    rep movsb
+
+    ; Modify the icanon and echo bits in the c_lflag of the buffer
+    mov eax, [termios + C_LFLAG_OFFSET]
+    and eax, 0xFFFFFFF5
+    mov [termios + C_LFLAG_OFFSET], eax
+
+    ; Set the VMIN and VTIME control characters to 0 for non-blocking read
+    mov byte [termios + C_CC_OFFSET + VMIN], 0
+    mov byte [termios + C_CC_OFFSET + VTIME], 0
+
+    ; Send ioctl to set the new terminal settings
+    mov edx, termios
+    call tcset
+    ret
+
