@@ -1,5 +1,10 @@
-falling_blocks:  
-	nasm -f bin -o fallingblocks.img fallingblocks.asm
+fallingblocks:  
+	nasm -f elf32 -o fallingblocks.o fallingblocks.asm
+	ld -m elf_i386 -o fallingblocks fallingblocks.o
 
-run:
-	qemu-system-x86_64 -fda fallingblocks.img
+debug:  
+	nasm -f elf32 -g -F dwarf -o fallingblocks.o fallingblocks.asm
+	ld -m elf_i386 -o fallingblocks fallingblocks.o
+
+clean:
+	rm -f fallingblocks.o fallingblocks

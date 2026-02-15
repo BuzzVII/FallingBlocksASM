@@ -14,7 +14,10 @@ LINES_POS		equ	0xb8000+0xbc*2+0xA0*2-18*2
 SCORE_POS		equ	LINES_POS+0x50*2
 MAIN_LOOP_TIME	equ	1000000
 
-tetris:
+section .text
+    global _start ; must be declared for linking
+
+_start:
 	call draw_screen
 	call wait_for_s
 	call clear_game_area
@@ -149,23 +152,58 @@ draw_screen:	;read in screen format 'string (50)',0,repeats,0
 	jne	next_line
 	popa
 	ret	
-	
+
+clear_screen_buffer:
+    pusha
+    mov		ebx,	0xb8000
+    mov		ecx,	0x50*0x19
+    clear_loop:
+        mov		word [ebx], 0x0720
+        add		ebx, 2
+        loop	clear_loop
+    popa
+    ret
+
+print_32:
+    pusha
+    mov		edx, [ebx]
+    mov		ecx, 0x20
+    print_loop:
+        mov		al, [edx]
+        mov		ah, 0x07
+        mov		word [ebx], ax
+        add		ebx, 2
+        inc		edx
+        loop	print_loop
+    popa
+    ret
+
 ;%include
 wait_for_s:
 	pusha
 	s_wait_loop:
-		mov	eax,	0x00
-		in al,		0x60
-		mov	dl,		al
-		in al, 0x61  ; read 8255 port 61h ( 97 Decimal ) into al
-		or al, 128  ;        // set the MSB - the keyboard acknowlege signal
-		out 0x61, al ;        // send the keyboard acknowlege signal from al
-		xor al, 128 ;// unset the MSB - the keyboard acknowlege signal
-		out 0x61, al ;    // send the keyboard acknowlege signal from al
+        ; read the keyboard status from port 60h into al and store it in dl
+        ; These are privilaged instructions, so we have to run in ring 0 to use them. We will use the keyboard status to check for key presses and releases
+		;mov	eax,	0x00
+		;in al,		0x60
+		;mov	dl,		al
+		;in al, 0x61  ; read 8255 port 61h ( 97 Decimal ) into al
+		;or al, 128  ;        // set the MSB - the keyboard acknowlege signal
+		;out 0x61, al ;        // send the keyboard acknowlege signal from al
+		;xor al, 128 ;// unset the MSB - the keyboard acknowlege signal
+		;out 0x61, al ;    // send the keyboard acknowlege signal from al
+
+        ; This uses sys call so that we can run in ring 3 and still check for key presses. We will use the keyboard status to check for key presses and releases
+        mov eax, 0x00
+        mov ebx, 0x00
+        mov ecx, 0x00
+        mov edx, 0x00
+        int 0x80
 		cmp	dl,		S_KEY_PRESS
-	jne	s_wait_loop
-	mov al, 0x20
-    out 0x20, al
+        jne	s_wait_loop
+    ; ring 0 instructions to reset the keyboard status
+	;mov al, 0x20
+    ;out 0x20, al
 	popa
 	ret
 
@@ -248,3 +286,4 @@ db'=============================================================================
   '|                   |\\\\\\|                       |//////|                    |',0,5, \
   '|                   =======================================                    |',0,1, \
   '================================================================================',0,1,0
+
