@@ -121,12 +121,12 @@ end_game:
 	popa
 	jmp back_to_main_loop
 
-%include '..\ASM\Tetris\choose_block.asm'
-%include '..\ASM\Tetris\clear_rows.asm' 	
-%include '..\ASM\Tetris\clear_game_area.asm'
-%include '..\ASM\Tetris\update_score.asm'
-%include '..\ASM\Tetris\draw_current_block.asm'
-%include '..\ASM\Tetris\check_collision.asm'
+%include 'choose_block.asm'
+%include 'clear_rows.asm' 	
+%include 'clear_game_area.asm'
+%include 'update_score.asm'
+%include 'draw_current_block.asm'
+%include 'check_collision.asm'
 	
 ;%include 
 draw_screen:	;read in screen format 'string (50)',0,repeats,0
