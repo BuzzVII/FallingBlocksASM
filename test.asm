@@ -1,23 +1,31 @@
 section .data
-    prompt db "Press a key: ", 0
-    len_p  equ $ - prompt
-    key    db 0
-    termios times 60 db 0
-    orig_termios times 60 db 0
-    TERMIOS_SIZE equ 60
-    clear_seq db 27, "[H", 27, "[2J"
-    clear_len equ $ - clear_seq
+    CLEAR_SEQ db 27, "[H", 27, "[2J"
+    CLEAR_LEN equ $ - CLEAR_SEQ
     TCGETS equ 0x5401
     TCSETS equ 0x5402
+    TERMIOS_SIZE equ 60
     SYS_IOCTL equ 54
+    SYS_CLOSE equ 6
+    SYS_OPEN equ 5
     SYS_WRITE equ 4
     SYS_READ equ 3
     SYS_EXIT equ 1
+    SYS_CLOCK_GETTIME equ 265
     STDIN equ 0
     STDOUT equ 1
+    READ_ONLY equ 0
+    CLOCK_REALTIME equ 0
     C_LFLAG_OFFSET equ 12
     ICANON equ 0x4
     ECHO equ 0x8
+    RANDOM_PATH db "/dev/urandom", 0
+
+section .bss
+    key_pressed resb 1
+    key_selected resb 1
+    timespec_buffer resb 8
+    termios resb TERMIOS_SIZE
+    orig_termios resb TERMIOS_SIZE
 
 section .text
     global _start
@@ -51,13 +59,11 @@ _start:
     ; Loop until q from read Keypress (sys_read)
     main_loop:
         call clear_screen
+        call select_random_key
         call prompt_user
-        mov eax, SYS_READ
-        mov ebx, STDIN
-        mov ecx, key
-        mov edx, 1
-        int 0x80
-        cmp byte [key], 'q'
+        call get_keypress
+        call timeout
+        cmp byte [key_pressed], 'q'
         jne main_loop
 
     ; Restore original terminal settings before exiting
@@ -75,16 +81,61 @@ _start:
 clear_screen:
     mov eax, SYS_WRITE
     mov ebx, STDOUT
-    mov ecx, clear_seq
-    mov edx, clear_len
+    mov ecx, CLEAR_SEQ
+    mov edx, CLEAR_LEN
     int 0x80
     ret
 
 prompt_user:
     mov eax, SYS_WRITE
     mov ebx, STDOUT
-    mov ecx, prompt
-    mov edx, len_p
+    mov ecx, key_selected
+    mov edx, 1
     int 0x80
     ret
 
+select_random_key:
+    ; Use the current system time to generate a pseudo-random key between 'a' and 'z'
+    call get_random_byte
+    and byte [key_selected], 26
+    add byte [key_selected], 'a'     ; Shift to 'a'-'z'
+    ret
+
+timeout:
+    mov ecx, 10000
+    wait_loop:
+        loop wait_loop
+    ret 
+
+get_keypress:
+    mov eax, SYS_READ
+    mov ebx, STDIN
+    mov ecx, key_pressed
+    mov edx, 1
+    int 0x80
+    ret
+
+get_system_time:
+    mov eax, SYS_CLOCK_GETTIME
+    mov ebx, CLOCK_REALTIME
+    mov ecx, timespec_buffer
+    int 0x80
+    ret
+
+get_random_byte:
+    mov eax, SYS_OPEN
+    mov ebx, RANDOM_PATH
+    mov ecx, READ_ONLY
+    int 0x80
+    mov esi, eax        ; Save the file descriptor
+
+    mov eax, SYS_READ
+    mov ebx, esi
+    mov ecx, key_selected
+    mov edx, 1
+    int 0x80
+
+    mov eax, SYS_CLOSE
+    mov ebx, esi
+    int 0x80
+    ret
