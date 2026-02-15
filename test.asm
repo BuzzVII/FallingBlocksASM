@@ -1,10 +1,14 @@
 section .data
     CLEAR_SEQ db 27, "[H", 27, "[2J"
     CLEAR_LEN equ $ - CLEAR_SEQ
+    CLEAR_ROW_SEQ db 27, "[J"
+    CLEAR_ROW_LEN equ $ - CLEAR_ROW_SEQ
     HIDE_CURSOR_SEQ db 27, "[?25l"
     HIDE_CURSOR_LEN equ $ - HIDE_CURSOR_SEQ
     SHOW_CURSOR_SEQ db 27, "[?25h"
     SHOW_CURSOR_LEN equ $ - SHOW_CURSOR_SEQ
+    POS_TEMPLATE db 27, "[00;00H"
+    POS_LEN equ $ - POS_TEMPLATE
     TCGETS equ 0x5401
     TCSETS equ 0x5402
     TERMIOS_SIZE equ 60
@@ -34,6 +38,8 @@ section .bss
     current_frame resd 1
     key_pressed resb 1
     key_selected resb 1
+    row resd 1
+    col resd 1
     timespec_buffer resb 16
     termios resb TERMIOS_SIZE
     orig_termios resb TERMIOS_SIZE
@@ -45,12 +51,16 @@ section .text
 
 _start:
     call set_terminal_mode
+    call clear_screen
 
     ; Loop until the user presses the correct key
     mov dword [current_frame], 0
     mov byte [key_selected], 'a'
+    mov byte [row], 5
+    mov byte [col], 5
     main_loop:
-        call clear_screen
+        call move_cursor
+        call clear_row
         call select_random_key
         call prompt_user
         call get_keypress
@@ -72,22 +82,37 @@ _start:
     int 0x80
 
 clear_screen:
+    pushad
     mov eax, SYS_WRITE
     mov ebx, STDOUT
     mov ecx, CLEAR_SEQ
     mov edx, CLEAR_LEN
     int 0x80
+    popad
+    ret
+
+clear_row:
+    pushad
+    mov eax, SYS_WRITE
+    mov ebx, STDOUT
+    mov ecx, CLEAR_ROW_SEQ
+    mov edx, CLEAR_ROW_LEN
+    int 0x80
+    popad
     ret
 
 prompt_user:
+    pushad
     mov eax, SYS_WRITE
     mov ebx, STDOUT
     mov ecx, key_selected
     mov edx, 1
     int 0x80
+    popad
     ret
 
 select_random_key:
+    pushad
     ; Check if the current frame count has reached the threshold to select a new key
     mov eax, [current_frame]
     cmp eax, CHARACTER_FRAMES
@@ -98,16 +123,20 @@ select_random_key:
     add byte [key_selected], 'a'     ; Shift to 'a'-'z'
     mov dword [current_frame], 0 ; Reset frame count for the new key
     .keep_current_key:
+    popad
     ret
 
 timeout:
+    pushad
     mov eax, SYS_NANOSLEEP
     mov ebx, FRAME_TIME_NS
     mov ecx, 0
     int 0x80
+    popad
     ret
 
 get_keypress:
+    pushad
     ; set keypressed to 0 before reading
     mov byte [key_pressed], 0
     mov eax, SYS_READ
@@ -116,16 +145,20 @@ get_keypress:
     mov edx, 1
     int 0x80
     ; TODO: Non-blocking so we should check if we got a keypress or not
+    popad
     ret
 
 get_system_time:
+    pushad
     mov eax, SYS_CLOCK_GETTIME
     mov ebx, CLOCK_REALTIME
     mov ecx, timespec_buffer
     int 0x80
+    popad
     ret
 
 get_random_byte:
+    pushad
     mov eax, SYS_OPEN
     mov ebx, RANDOM_PATH
     mov ecx, READ_ONLY
@@ -141,25 +174,31 @@ get_random_byte:
     mov eax, SYS_CLOSE
     mov ebx, esi
     int 0x80
+    popad
     ret
 
 tcget:
     ; Get the current terminal settings into edx
+    pushad
     mov eax, SYS_IOCTL
     mov ebx, STDIN
     mov ecx, TCGETS
     int 0x80
+    popad
     ret
 
 tcset:
     ; Set the terminal settings from edx
+    pushad
     mov eax, SYS_IOCTL
     mov ebx, STDIN
     mov ecx, TCSETS
     int 0x80
+    popad
     ret
 
 set_terminal_mode:
+    pushad
     mov eax, SYS_WRITE
     mov ebx, STDOUT
     mov ecx, HIDE_CURSOR_SEQ
@@ -188,5 +227,23 @@ set_terminal_mode:
     ; Send ioctl to set the new terminal settings
     mov edx, termios
     call tcset
+    popad
     ret
 
+move_cursor:
+    ; TODO: can only go up to 9, need to handle more rows/columns
+    ; Format the position sequence with the current row and column
+    mov eax, [row]
+    add eax, '0'
+    mov [POS_TEMPLATE + 3], al
+    mov eax, [col]
+    add eax, '0'
+    mov [POS_TEMPLATE + 6], al
+
+    ; Write the position sequence to move the cursor
+    mov eax, SYS_WRITE
+    mov ebx, STDOUT
+    mov ecx, POS_TEMPLATE
+    mov edx, POS_LEN
+    int 0x80
+    ret

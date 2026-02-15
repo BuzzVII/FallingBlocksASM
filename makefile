@@ -13,3 +13,7 @@ clean:
 test:
 	nasm -f elf32 -o test.o test.asm
 	ld -m elf_i386 -o test test.o
+
+test_debug:
+	nasm -f elf32 -g -F dwarf -o test.o test.asm
+	ld -m elf_i386 -o test test.o
