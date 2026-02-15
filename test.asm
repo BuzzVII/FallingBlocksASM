@@ -66,8 +66,9 @@ _start:
         jl .keep_current_key
             call move_cursor
             call clear_row
-            mov ecx, key_selected ; Pass the address of key_selected to select_random_key
             call select_random_key
+            call select_random_row_col
+            call move_cursor
             call prompt_user
             mov dword [current_frame], 0 ; Reset frame count for the new key
         .keep_current_key:
@@ -120,9 +121,24 @@ select_random_key:
     ; Store random value returned in ecx for use in prompt_user
     pushad
     ; Use /dev/urandom to generate a key between 'a' and 'z'
+    mov ecx, key_selected ; Pass the address of key_selected to select_random_key
     call get_random_byte
     and byte [ecx], 26
     add byte [ecx], 'a'     ; Shift to 'a'-'z'
+    popad
+    ret
+
+select_random_row_col:
+    ; Store random value returned in ecx for use in row/col
+    pushad
+    mov ecx, row
+    call get_random_byte
+    and byte [ecx], 9
+    add byte [ecx], 1      ; Shift to 1-10
+    mov ecx, col
+    call get_random_byte
+    and byte [ecx], 9
+    add byte [ecx], 1      ; Shift to 1-10
     popad
     ret
 
