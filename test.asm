@@ -4,6 +4,13 @@ section .data
     TCGETS equ 0x5401
     TCSETS equ 0x5402
     TERMIOS_SIZE equ 60
+    C_LFLAG_OFFSET equ 12
+    C_CC_OFFSET equ 16
+    VMIN equ 0x6
+    VTIME equ 0x7
+    ICANON equ 0x4
+    ECHO equ 0x8
+    SYS_NANOSLEEP equ 162
     SYS_IOCTL equ 54
     SYS_CLOSE equ 6
     SYS_OPEN equ 5
@@ -15,15 +22,13 @@ section .data
     STDOUT equ 1
     READ_ONLY equ 0
     CLOCK_REALTIME equ 0
-    C_LFLAG_OFFSET equ 12
-    ICANON equ 0x4
-    ECHO equ 0x8
     RANDOM_PATH db "/dev/urandom", 0
+    TIMEOUT_NS dd 0, 300000000   ; 100ms in nanoseconds
 
 section .bss
     key_pressed resb 1
     key_selected resb 1
-    timespec_buffer resb 8
+    timespec_buffer resb 16
     termios resb TERMIOS_SIZE
     orig_termios resb TERMIOS_SIZE
 
@@ -49,6 +54,10 @@ _start:
     and eax, 0xFFFFFFF5
     mov [termios + C_LFLAG_OFFSET], eax
 
+    ; Set the VMIN and VTIME control characters to 0 for non-blocking read
+    mov byte [termios + C_CC_OFFSET + VMIN], 0
+    mov byte [termios + C_CC_OFFSET + VTIME], 0
+
     ; Send ioctl to set the new terminal settings (non-canonical mode, no echo)
     mov eax, SYS_IOCTL
     mov ebx, STDIN
@@ -63,7 +72,9 @@ _start:
         call prompt_user
         call get_keypress
         call timeout
-        cmp byte [key_pressed], 'q'
+        ; Check if the pressed key matches the selected key
+        mov al, [key_pressed]
+        cmp al, [key_selected]
         jne main_loop
 
     ; Restore original terminal settings before exiting
@@ -102,17 +113,21 @@ select_random_key:
     ret
 
 timeout:
-    mov ecx, 10000
-    wait_loop:
-        loop wait_loop
-    ret 
+    mov eax, SYS_NANOSLEEP
+    mov ebx, TIMEOUT_NS
+    mov ecx, 0
+    int 0x80
+    ret
 
 get_keypress:
+    ; set keypressed to 0 before reading
+    mov byte [key_pressed], 0
     mov eax, SYS_READ
     mov ebx, STDIN
     mov ecx, key_pressed
     mov edx, 1
     int 0x80
+    ; TODO: Non-blocking so we should check if we got a keypress or not
     ret
 
 get_system_time:
