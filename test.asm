@@ -1,6 +1,10 @@
 section .data
     CLEAR_SEQ db 27, "[H", 27, "[2J"
     CLEAR_LEN equ $ - CLEAR_SEQ
+    HIDE_CURSOR_SEQ db 27, "[?25l"
+    HIDE_CURSOR_LEN equ $ - HIDE_CURSOR_SEQ
+    SHOW_CURSOR_SEQ db 27, "[?25h"
+    SHOW_CURSOR_LEN equ $ - SHOW_CURSOR_SEQ
     TCGETS equ 0x5401
     TCSETS equ 0x5402
     TERMIOS_SIZE equ 60
@@ -50,7 +54,7 @@ _start:
         call select_random_key
         call prompt_user
         call get_keypress
-        call timeout
+        call timeout ; TODO: calcutate remaining time, currently constant
         mov eax, [current_frame]
         inc eax
         mov [current_frame], eax
@@ -156,6 +160,12 @@ tcset:
     ret
 
 set_terminal_mode:
+    mov eax, SYS_WRITE
+    mov ebx, STDOUT
+    mov ecx, HIDE_CURSOR_SEQ
+    mov edx, HIDE_CURSOR_LEN
+    int 0x80
+
     ; Get the current terminal settings
     mov edx, termios
     call tcget
