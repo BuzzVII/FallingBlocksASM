@@ -54,20 +54,25 @@ _start:
     call clear_screen
 
     ; Loop until the user presses the correct key
-    mov dword [current_frame], 0
-    mov byte [key_selected], 'a'
+    mov dword [current_frame], CHARACTER_FRAMES ; Start with the max frames to select a new key immediately
     mov byte [row], 5
     mov byte [col], 5
     main_loop:
-        call move_cursor
-        call clear_row
-        call select_random_key
-        call prompt_user
-        call get_keypress
-        call timeout ; TODO: calcutate remaining time, currently constant
+        ; Check if the current frame count has reached the threshold to select a new key
         mov eax, [current_frame]
         inc eax
         mov [current_frame], eax
+        cmp eax, CHARACTER_FRAMES
+        jl .keep_current_key
+            call move_cursor
+            call clear_row
+            mov ecx, key_selected ; Pass the address of key_selected to select_random_key
+            call select_random_key
+            call prompt_user
+            mov dword [current_frame], 0 ; Reset frame count for the new key
+        .keep_current_key:
+        call get_keypress
+        call timeout ; TODO: calcutate remaining time, currently constant
         mov al, [key_pressed]
         cmp al, [key_selected]
         jne main_loop
@@ -112,17 +117,12 @@ prompt_user:
     ret
 
 select_random_key:
+    ; Store random value returned in ecx for use in prompt_user
     pushad
-    ; Check if the current frame count has reached the threshold to select a new key
-    mov eax, [current_frame]
-    cmp eax, CHARACTER_FRAMES
-    jl .keep_current_key
     ; Use /dev/urandom to generate a key between 'a' and 'z'
     call get_random_byte
-    and byte [key_selected], 26
-    add byte [key_selected], 'a'     ; Shift to 'a'-'z'
-    mov dword [current_frame], 0 ; Reset frame count for the new key
-    .keep_current_key:
+    and byte [ecx], 26
+    add byte [ecx], 'a'     ; Shift to 'a'-'z'
     popad
     ret
 
@@ -158,7 +158,9 @@ get_system_time:
     ret
 
 get_random_byte:
+    ; Read a random byte from /dev/urandom into ecx
     pushad
+    mov edx, ecx
     mov eax, SYS_OPEN
     mov ebx, RANDOM_PATH
     mov ecx, READ_ONLY
@@ -167,7 +169,7 @@ get_random_byte:
 
     mov eax, SYS_READ
     mov ebx, esi
-    mov ecx, key_selected
+    mov ecx, edx
     mov edx, 1
     int 0x80
 
