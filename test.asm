@@ -23,9 +23,11 @@ section .data
     READ_ONLY equ 0
     CLOCK_REALTIME equ 0
     RANDOM_PATH db "/dev/urandom", 0
-    TIMEOUT_NS dd 0, 300000000
+    FRAME_TIME_NS dd 0, 16000000 ; 16ms = 60 FPS
+    CHARACTER_FRAMES equ 120 ; Number of frames to displace character before changing
 
 section .bss
+    current_frame resd 1
     key_pressed resb 1
     key_selected resb 1
     timespec_buffer resb 16
@@ -39,14 +41,19 @@ section .text
 
 _start:
     call set_terminal_mode
-    ; Loop until q from read Keypress (sys_read)
+
+    ; Loop until the user presses the correct key
+    mov dword [current_frame], 0
+    mov byte [key_selected], 'a'
     main_loop:
         call clear_screen
         call select_random_key
         call prompt_user
         call get_keypress
         call timeout
-        ; Check if the pressed key matches the selected key
+        mov eax, [current_frame]
+        inc eax
+        mov [current_frame], eax
         mov al, [key_pressed]
         cmp al, [key_selected]
         jne main_loop
@@ -57,7 +64,7 @@ _start:
 
     ; Exit (sys_exit)
     mov eax, SYS_EXIT
-    xor ebx, ebx               ; status: 0
+    xor ebx, ebx ; status: 0
     int 0x80
 
 clear_screen:
@@ -77,15 +84,21 @@ prompt_user:
     ret
 
 select_random_key:
-    ; Use the current system time to generate a pseudo-random key between 'a' and 'z'
+    ; Check if the current frame count has reached the threshold to select a new key
+    mov eax, [current_frame]
+    cmp eax, CHARACTER_FRAMES
+    jl .keep_current_key
+    ; Use /dev/urandom to generate a key between 'a' and 'z'
     call get_random_byte
     and byte [key_selected], 26
     add byte [key_selected], 'a'     ; Shift to 'a'-'z'
+    mov dword [current_frame], 0 ; Reset frame count for the new key
+    .keep_current_key:
     ret
 
 timeout:
     mov eax, SYS_NANOSLEEP
-    mov ebx, TIMEOUT_NS
+    mov ebx, FRAME_TIME_NS
     mov ecx, 0
     int 0x80
     ret
