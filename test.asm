@@ -23,12 +23,6 @@ section .text
     global _start
 
 _start:
-    mov eax, SYS_WRITE
-    mov ebx, STDOUT
-    mov ecx, clear_seq
-    mov edx, clear_len
-    int 0x80
-
     ; Get the current terminal settings
     mov eax, SYS_IOCTL
     mov ebx, STDIN
@@ -54,15 +48,10 @@ _start:
     mov edx, termios
     int 0x80
 
-    ; Print Prompt (sys_write)
-    mov eax, SYS_WRITE
-    mov ebx, STDOUT
-    mov ecx, prompt
-    mov edx, len_p
-    int 0x80
-
     ; Loop until q from read Keypress (sys_read)
     main_loop:
+        call clear_screen
+        call prompt_user
         mov eax, SYS_READ
         mov ebx, STDIN
         mov ecx, key
@@ -82,3 +71,20 @@ _start:
     mov eax, SYS_EXIT
     xor ebx, ebx               ; status: 0
     int 0x80
+
+clear_screen:
+    mov eax, SYS_WRITE
+    mov ebx, STDOUT
+    mov ecx, clear_seq
+    mov edx, clear_len
+    int 0x80
+    ret
+
+prompt_user:
+    mov eax, SYS_WRITE
+    mov ebx, STDOUT
+    mov ecx, prompt
+    mov edx, len_p
+    int 0x80
+    ret
+
