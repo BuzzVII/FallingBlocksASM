@@ -84,7 +84,7 @@ select_random_key:
     ; Use /dev/urandom to generate a key between 'a' and 'z'
     mov ecx, key_selected ; Pass the address of key_selected to select_random_key
     call get_random_byte
-    and byte [ecx], 26
+    and byte [ecx], 25
     add byte [ecx], 'a'     ; Shift to 'a'-'z'
     popad
     ret
