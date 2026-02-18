@@ -1,10 +1,12 @@
-fallingblocks: fallingblocks.asm 
+fallingblocks: terminal.asm fallingblocks.asm 
+	nasm -f elf32 -o terminal.o terminal.asm
 	nasm -f elf32 -o fallingblocks.o fallingblocks.asm
-	ld -m elf_i386 -o fallingblocks fallingblocks.o
+	ld -m elf_i386 -o fallingblocks fallingblocks.o terminal.o
 
-debug: fallingblocks.asm
+debug: terminal.asm fallingblocks.asm
+	nasm -f elf32 -g -F dwarf -o terminal.o terminal.asm
 	nasm -f elf32 -g -F dwarf -o fallingblocks.o fallingblocks.asm
-	ld -m elf_i386 -o fallingblocks fallingblocks.o
+	ld -m elf_i386 -o fallingblocks fallingblocks.o terminal.o
 
 clean:
 	rm -f test.o test

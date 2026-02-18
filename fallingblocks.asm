@@ -12,10 +12,14 @@ CURRENT_BLOCK_START equ	0x05*2
 CHECK_LINE_START equ 0xb8000+0x74c*2-0xa0
 LINES_POS		equ	0xb8000+0xbc*2+0xA0*2-18*2
 SCORE_POS		equ	LINES_POS+0x50*2
-MAIN_LOOP_TIME	equ	1000000
+MAIN_LOOP_TIME_NS	equ	160000000 ;160ms = 60fps
 
 section .text
-    global _start ; must be declared for linking
+    global _start
+    extern set_terminal_mode
+    extern restore_terminal_mode
+    extern clear_screen
+    extern clear_row
 
 _start:
 	call draw_screen
@@ -40,7 +44,7 @@ _start:
 		RDTSC		
 		mov ebx,	[Game_loop_start]
 		sub	eax,	ebx
-		cmp	eax,	MAIN_LOOP_TIME
+		cmp	eax,	MAIN_LOOP_TIME_NS
 		jl	waiting
 	jmp main_loop
 Finish:
@@ -134,7 +138,8 @@ end_game:
 ;%include 
 draw_screen:	;read in screen format 'string (50)',0,repeats,0
 	pusha
-	call	clear_screen_buffer
+    call set_terminal_mode 
+    call clear_screen
 	mov		ebx,	Screen_layout ;starting address
 	mov		eax,	0x0			  ;starting line
 	next_line:
