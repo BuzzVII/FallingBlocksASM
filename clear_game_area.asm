@@ -2,10 +2,10 @@ clear_game_area:
 	pusha
 	mov ebx, CLEAR_START
 	add ebx,	4
-	mov ecx,		0x14 ;make 15 to not leave gap at top
+	mov ecx,    0x14 ;make 15 to not leave gap at top
 	clear_game_area_loop:
 		push ecx
-		mov	eax, Clear_strip
+		mov	eax, clear_strip
 		next_space:
 			mov ecx, 0x00FF
 			mov dl, [eax]

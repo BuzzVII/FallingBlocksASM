@@ -11,6 +11,7 @@ CHECK_LINE_START equ 0xb8000+0x74c*2-0xa0
 LINES_POS		equ	0xb8000+0xbc*2+0xA0*2-18*2
 SCORE_POS		equ	LINES_POS+0x50*2
 MAIN_LOOP_TIME_NS	equ	160000000 ;160ms = 60fps
+SYS_EXIT equ 1
 
 section .text
     global _start
@@ -22,11 +23,14 @@ section .text
     extern print
 
 _start:
+    call init
 	call draw_screen
 	call wait_for_s
+    cmp dword [game_quit], 1
+    je exit
 	call clear_game_area
 	call choose_block
-	main_loop:				;loop until end_game jumps to finish		
+	main_loop:				;loop until end_game jumps to game over or exit 
 		RDTSC		
 		mov [Game_loop_start],eax
 		call clear_current_block
@@ -47,9 +51,19 @@ _start:
 		cmp	eax,	MAIN_LOOP_TIME_NS
 		jl	waiting
 	jmp main_loop
-Finish:
+_game_over:
+    call init
+	call draw_screen
 	call wait_for_s
+    cmp dword [game_quit], 1
+    je exit
 	call main_loop
+exit:
+    call restore_terminal_mode
+    mov eax, SYS_EXIT
+    xor ebx, ebx ; status: 0
+    int 0x80
+
 	
 
 ;include all the files that contain the functions
@@ -183,88 +197,105 @@ wait_for_s:
         je	s_pressed
         cmp al, 'S'
         je	s_pressed
+        cmp al, 'q'
+        je  q_pressed 
+        cmp al, 'Q'
+        je  q_pressed
         jne	s_wait_loop
+    q_pressed:
+        mov dword [game_quit], 1
     s_pressed:
 	popa
 	ret
 
-;DATA: variables and constants
-;store all the Tetrinome shapes in memory as color,no. rotations, piece row, new row/end peice/end Tetrinome
-O:db 	01100000b, 0x01,	'BB'	,2, \
-			'BB'	,0
-I:db	01010000b, 0x02,	'BBBB'	,1, \
-			'B'		,2, \
-			'B'		,2, \
-			'B'		,2, \
-			'B'		,0
-L1:db	01000000b, 0x04,	'BBB'	,2, \
-			'B'		,1, \
-			'BB'	,2, \
-			' B'	,2, \
-			' B'	,1, \
-			'  B'	,2, \
-			'BBB'	,1, \
-			'B'		,2, \
-			'B'		,2, \
-			'BB'	,0
-L2:db	00110000b, 0x04,	'B'		,2, \
-			'BBB'	,1, \
-			'BB'	,2, \
-			'B'		,2, \
-			'B'		,1, \
-			'BBB'	,2, \
-			'  B'	,1, \
-			' B'	,2, \
-			' B'	,2, \
-			'BB'	,0
-T:db 	01110000b, 0x03,	'BBB'	,2, \
-			' B'	,1, \
-			' B'	,2, \
-			'BB'	,2, \
-			' B'	,1, \
-			' B'	,2, \
-			'BBB'	,0
-S:db 	00010000b, 0x02,	' BB'	,2, \
-			'BB'	,1, \
-			'B'		,2, \
-			'BB'	,2, \
-			' B'	,0
-Z:db 	0010000b, 0x02,	'BB'	,2, \
-			' BB'	,1, \
-			' B'	,2, \
-			'BB'	,2, \
-			'B'		,0
-;WIN:db					'You WON!',0
-;LOSE:db					'You LOST!',0
-;PLAY_AGAIN:db			'Press S to play again'
-;FINISH_GAME:db			'Press Q to quit'
-score:dd				0x00000000
-lines:db				0x00
-current_block:dd		0x00000000
-next_block:dd			0x00000000
-Block_position_x:db 	0x00
-Last_position_x:db		0x00
-Block_position_y:db		0x00
-Last_position_y:db		0x00
-Block_rotation:db		0x00
-Rotations_for_block:db	0x00
-Game_loop_start:dd		0x00000000
-Game_loop_count:dw		0x0000
-row_clear_level:db		0x00
-Clear_strip:db			'                       ',0
-;25 rows X 80 columns = 1440
-Screen_layout:		
-db'================================================================================',10,0,1, \
-  '|                   =======================================                    |',10,0,1, \
-  '|                   |\\\\\\|                       |//////|                    |',10,0,2, \
-  '| LINES :           |\\\\\\|                       |//////|                    |',10,0,1, \
-  '| SCORE :           |//////|                       |\\\\\\|                    |',10,0,1, \
-  '|                   |\\\\\\|                       |//////|                    |',10,0,3, \
-  '| NEXT BLOCK:       |//////|                       |\\\\\\|                    |',10,0,1, \
-  '|  ===============  |\\\\\\|   Press S to start    |//////|                    |',10,0,1, \
-  '|  |             |  |//////|                       |\\\\\\|                    |',10,0,6, \
-  '|  ===============  |\\\\\\|                       |//////|                    |',10,0,1, \
-  '|                   |\\\\\\|                       |//////|                    |',10,0,5, \
-  '|                   =======================================                    |',10,0,1, \
-  '================================================================================',10,0,1,0
+init:
+    mov dword [game_start], 0
+    mov dword [game_over], 0
+    mov dword [is_won], 0
+    mov dword [game_quit], 0
+    ret
 
+section .data
+    ;DATA: variables and constants
+    ;store all the Tetrinome shapes in memory as color,no. rotations, piece row, new row/end peice/end Tetrinome
+    O:db 	01100000b, 0x01,	'BB'	,2, \
+                'BB'	,0
+    I:db	01010000b, 0x02,	'BBBB'	,1, \
+                'B'		,2, \
+                'B'		,2, \
+                'B'		,2, \
+                'B'		,0
+    L1:db	01000000b, 0x04,	'BBB'	,2, \
+                'B'		,1, \
+                'BB'	,2, \
+                ' B'	,2, \
+                ' B'	,1, \
+                '  B'	,2, \
+                'BBB'	,1, \
+                'B'		,2, \
+                'B'		,2, \
+                'BB'	,0
+    L2:db	00110000b, 0x04,	'B'		,2, \
+                'BBB'	,1, \
+                'BB'	,2, \
+                'B'		,2, \
+                'B'		,1, \
+                'BBB'	,2, \
+                '  B'	,1, \
+                ' B'	,2, \
+                ' B'	,2, \
+                'BB'	,0
+    T:db 	01110000b, 0x03,	'BBB'	,2, \
+                ' B'	,1, \
+                ' B'	,2, \
+                'BB'	,2, \
+                ' B'	,1, \
+                ' B'	,2, \
+                'BBB'	,0
+    S:db 	00010000b, 0x02,	' BB'	,2, \
+                'BB'	,1, \
+                'B'		,2, \
+                'BB'	,2, \
+                ' B'	,0
+    Z:db 	0010000b, 0x02,	'BB'	,2, \
+                ' BB'	,1, \
+                ' B'	,2, \
+                'BB'	,2, \
+                'B'		,0
+    WIN:db					'You WON!',0
+    LOSE:db					'You LOST!',0
+    score:dd				0x00000000
+    lines:db				0x00
+    current_block:dd		0x00000000
+    next_block:dd			0x00000000
+    Block_position_x:db 	0x00
+    Last_position_x:db		0x00
+    Block_position_y:db		0x00
+    Last_position_y:db		0x00
+    Block_rotation:db		0x00
+    Rotations_for_block:db	0x00
+    Game_loop_start:dd		0x00000000
+    Game_loop_count:dw		0x0000
+    row_clear_level:db		0x00
+    clear_strip:db			'                       ',0
+    ;25 rows X 80 columns = 1440
+    Screen_layout:		
+    db'================================================================================',10,0,1, \
+      '|                   =======================================                    |',10,0,1, \
+      '|                   |\\\\\\|                       |//////|                    |',10,0,2, \
+      '| LINES :           |\\\\\\|                       |//////|                    |',10,0,1, \
+      '| SCORE :           |//////|                       |\\\\\\|                    |',10,0,1, \
+      '|                   |\\\\\\|                       |//////|                    |',10,0,3, \
+      '| NEXT BLOCK:       |//////|    Press S to start   |\\\\\\|                    |',10,0,1, \
+      '|  ===============  |\\\\\\|    Press Q to quit    |//////|                    |',10,0,1, \
+      '|  |             |  |//////|                       |\\\\\\|                    |',10,0,6, \
+      '|  ===============  |\\\\\\|                       |//////|                    |',10,0,1, \
+      '|                   |\\\\\\|                       |//////|                    |',10,0,5, \
+      '|                   =======================================                    |',10,0,1, \
+      '================================================================================',10,0,1,0
+
+section .bss
+    game_start resd 1
+    game_over resd 1
+    is_won resd 1
+    game_quit resd 1

@@ -124,6 +124,7 @@ clear_row:
     ret
 
 get_keypress:
+    ; result will be in al, 0 if no key was pressed, otherwise the key value
     push ebx;
     push ecx;
     push edx;
