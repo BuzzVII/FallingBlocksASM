@@ -31,6 +31,7 @@ section .text
     extern restore_terminal_mode
     extern clear_screen
     extern clear_row
+    extern get_keypress
 
 _start:
     call set_terminal_mode
@@ -55,7 +56,10 @@ _start:
             call prompt_user
             mov dword [current_frame], 0 ; Reset frame count for the new key
         .keep_current_key:
+        ; set keypressed to 0 before reading
         call get_keypress
+        ; copy return value to key_pressed
+        mov [key_pressed], al
         call timeout ; TODO: calcutate remaining time, currently constant
         mov al, [key_pressed]
         cmp al, [key_selected]
@@ -112,19 +116,6 @@ timeout:
     mov ebx, FRAME_TIME_NS
     mov ecx, 0
     int 0x80
-    popad
-    ret
-
-get_keypress:
-    pushad
-    ; set keypressed to 0 before reading
-    mov byte [key_pressed], 0
-    mov eax, SYS_READ
-    mov ebx, STDIN
-    mov ecx, key_pressed
-    mov edx, 1
-    int 0x80
-    ; TODO: Non-blocking so we should check if we got a keypress or not
     popad
     ret
 

@@ -20,16 +20,12 @@ section .data
     ECHO equ 0x8
     SYS_IOCTL equ 54
     SYS_WRITE equ 4
+    SYS_READ equ 3
     STDIN equ 0
     STDOUT equ 1
 
 section .bss
-    current_frame resd 1
     key_pressed resb 1
-    key_selected resb 1
-    row resd 1
-    col resd 1
-    timespec_buffer resb 16
     termios resb TERMIOS_SIZE
     orig_termios resb TERMIOS_SIZE
 
@@ -38,6 +34,8 @@ section .text
     global restore_terminal_mode
     global clear_screen
     global clear_row
+    global get_keypress
+    global print
 
 tcget:
     ; Get the current terminal settings into edx
@@ -123,5 +121,32 @@ clear_row:
     mov edx, CLEAR_ROW_LEN
     int 0x80
     popad
+    ret
+
+get_keypress:
+    push ebx;
+    push ecx;
+    push edx;
+    ; set keypressed to 0 before reading
+    mov byte [key_pressed], 0
+    mov eax, SYS_READ
+    mov ebx, STDIN
+    mov ecx, key_pressed
+    mov edx, 1
+    int 0x80
+    mov al, [key_pressed]
+    ; TODO: Non-blocking so we should check if we got a keypress or not
+    pop edx;
+    pop ecx;
+    pop ebx;
+    ret
+
+print:
+    pusha
+    mov ecx, ebx
+    mov eax, SYS_WRITE
+    mov ebx, STDOUT
+    int 0x80
+    popa
     ret
 

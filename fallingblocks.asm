@@ -4,8 +4,6 @@ UP_KEY_PRESS: 	equ 0x48
 DOWN_KEY_PRESS:	equ 0x50
 LEFT_KEY_PRESS:	equ	0x4b
 RIGHT_KEY_PRESS:equ 0x4d
-S_KEY_DOWN:		equ 0x1f
-S_KEY_PRESS:	equ	0x9f
 CLEAR_START:	equ	0xb8000+0xbc*2+0xA0-4
 NEXT_BLOCK_START equ 0xb8000+0x3c9*2+0xA0
 CURRENT_BLOCK_START equ	0x05*2
@@ -20,6 +18,8 @@ section .text
     extern restore_terminal_mode
     extern clear_screen
     extern clear_row
+    extern get_keypress
+    extern print
 
 _start:
 	call draw_screen
@@ -143,45 +143,21 @@ draw_screen:	;read in screen format 'string (50)',0,repeats,0
 	mov		ebx,	Screen_layout ;starting address
 	mov		eax,	0x0			  ;starting line
 	next_line:
-		mov		edx,	0x51
-		add		edx,	ebx
+		mov		edx,	0x52  ; length of line + 1 (null terminator)
+		add		edx,	ebx   ; location of number of repeats for line
 		mov		ecx,	0x0
-		mov		cl,		[edx]			;number of repeats
+		mov		cl,		[edx] ;number of repeats
 		printing_screen:
-			call	print_32
+            mov edx, 0x51 ; characters to print from ebx
+			call	print
 			inc		eax
 		loop	printing_screen
-		add		ebx,	0x52		;shift to next line
+		add		ebx,	0x53		;shift to next line
 		mov		dl,	[ebx]
 		cmp		dl,	0
 	jne	next_line
 	popa
 	ret	
-
-clear_screen_buffer:
-    pusha
-    mov		ebx,	0xb8000
-    mov		ecx,	0x50*0x19
-    clear_loop:
-        mov		word [ebx], 0x0720
-        add		ebx, 2
-        loop	clear_loop
-    popa
-    ret
-
-print_32:
-    pusha
-    mov		edx, [ebx]
-    mov		ecx, 0x20
-    print_loop:
-        mov		al, [edx]
-        mov		ah, 0x07
-        mov		word [ebx], ax
-        add		ebx, 2
-        inc		edx
-        loop	print_loop
-    popa
-    ret
 
 ;%include
 wait_for_s:
@@ -197,18 +173,18 @@ wait_for_s:
 		;out 0x61, al ;        // send the keyboard acknowlege signal from al
 		;xor al, 128 ;// unset the MSB - the keyboard acknowlege signal
 		;out 0x61, al ;    // send the keyboard acknowlege signal from al
+        ; ring 0 instructions to reset the keyboard status
+        ;mov al, 0x20
+        ;out 0x20, al
 
         ; This uses sys call so that we can run in ring 3 and still check for key presses. We will use the keyboard status to check for key presses and releases
-        mov eax, 0x00
-        mov ebx, 0x00
-        mov ecx, 0x00
-        mov edx, 0x00
-        int 0x80
-		cmp	dl,		S_KEY_PRESS
+        call get_keypress
+        cmp al, 's'
+        je	s_pressed
+        cmp al, 'S'
+        je	s_pressed
         jne	s_wait_loop
-    ; ring 0 instructions to reset the keyboard status
-	;mov al, 0x20
-    ;out 0x20, al
+    s_pressed:
 	popa
 	ret
 
@@ -278,17 +254,17 @@ row_clear_level:db		0x00
 Clear_strip:db			'                       ',0
 ;25 rows X 80 columns = 1440
 Screen_layout:		
-db'================================================================================',0,1, \
-  '|                   =======================================                    |',0,1, \
-  '|                   |\\\\\\|                       |//////|                    |',0,2, \
-  '| LINES :           |\\\\\\|                       |//////|                    |',0,1, \
-  '| SCORE :           |//////|                       |\\\\\\|                    |',0,1, \
-  '|                   |\\\\\\|                       |//////|                    |',0,3, \
-  '| NEXT BLOCK:       |//////|                       |\\\\\\|                    |',0,1, \
-  '|  ===============  |\\\\\\|   Press S to start    |//////|                    |',0,1, \
-  '|  |             |  |//////|                       |\\\\\\|                    |',0,6, \
-  '|  ===============  |\\\\\\|                       |//////|                    |',0,1, \
-  '|                   |\\\\\\|                       |//////|                    |',0,5, \
-  '|                   =======================================                    |',0,1, \
-  '================================================================================',0,1,0
+db'================================================================================',10,0,1, \
+  '|                   =======================================                    |',10,0,1, \
+  '|                   |\\\\\\|                       |//////|                    |',10,0,2, \
+  '| LINES :           |\\\\\\|                       |//////|                    |',10,0,1, \
+  '| SCORE :           |//////|                       |\\\\\\|                    |',10,0,1, \
+  '|                   |\\\\\\|                       |//////|                    |',10,0,3, \
+  '| NEXT BLOCK:       |//////|                       |\\\\\\|                    |',10,0,1, \
+  '|  ===============  |\\\\\\|   Press S to start    |//////|                    |',10,0,1, \
+  '|  |             |  |//////|                       |\\\\\\|                    |',10,0,6, \
+  '|  ===============  |\\\\\\|                       |//////|                    |',10,0,1, \
+  '|                   |\\\\\\|                       |//////|                    |',10,0,5, \
+  '|                   =======================================                    |',10,0,1, \
+  '================================================================================',10,0,1,0
 
