@@ -1,6 +1,4 @@
 section .data
-    POS_TEMPLATE db 27, "[00;00H"
-    POS_LEN equ $ - POS_TEMPLATE
     SYS_NANOSLEEP equ 162
     SYS_IOCTL equ 54
     SYS_CLOSE equ 6
@@ -32,6 +30,7 @@ section .text
     extern clear_screen
     extern clear_row
     extern get_keypress
+    extern move_cursor
 
 _start:
     call set_terminal_mode
@@ -48,10 +47,14 @@ _start:
         mov [current_frame], eax
         cmp eax, CHARACTER_FRAMES
         jl .keep_current_key
+            mov eax, [row]
+            mov ebx, [col]
             call move_cursor
             call clear_row
             call select_random_key
             call select_random_row_col
+            mov eax, [row]
+            mov ebx, [col]
             call move_cursor
             call prompt_user
             mov dword [current_frame], 0 ; Reset frame count for the new key
@@ -150,28 +153,3 @@ get_random_byte:
     popad
     ret
 
-move_cursor:
-    ; Format the position sequence with the current row and column
-    mov eax, [row]
-    mov dl, 10
-    div dl      ; Get quotient in al (tens) and remainder in ah (ones)
-    add al, '0'
-    add ah, '0'
-    mov [POS_TEMPLATE + 3], ah
-    mov [POS_TEMPLATE + 2], al
-
-    mov eax, [col]
-    mov dl, 10
-    div dl 
-    add al, '0'
-    add ah, '0'
-    mov [POS_TEMPLATE + 6], ah
-    mov [POS_TEMPLATE + 5], al
-
-    ; Write the position sequence to move the cursor
-    mov eax, SYS_WRITE
-    mov ebx, STDOUT
-    mov ecx, POS_TEMPLATE
-    mov edx, POS_LEN
-    int 0x80
-    ret

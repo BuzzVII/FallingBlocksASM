@@ -1,13 +1,13 @@
 section .data
     CLEAR_SEQ db 27, "[H", 27, "[2J"
     CLEAR_LEN equ $ - CLEAR_SEQ
-    CLEAR_ROW_SEQ db 27, "[J"
+    CLEAR_ROW_SEQ db 27, "[K"
     CLEAR_ROW_LEN equ $ - CLEAR_ROW_SEQ
     HIDE_CURSOR_SEQ db 27, "[?25l"
     HIDE_CURSOR_LEN equ $ - HIDE_CURSOR_SEQ
     SHOW_CURSOR_SEQ db 27, "[?25h"
     SHOW_CURSOR_LEN equ $ - SHOW_CURSOR_SEQ
-    POS_TEMPLATE db 27, "[00;00h"
+    POS_TEMPLATE db 27, "[00;00H"
     POS_LEN equ $ - POS_TEMPLATE
     TCGETS equ 0x5401
     TCSETS equ 0x5402
@@ -36,6 +36,7 @@ section .text
     global clear_row
     global get_keypress
     global print
+    global move_cursor
 
 tcget:
     ; Get the current terminal settings into edx
@@ -151,3 +152,27 @@ print:
     popa
     ret
 
+move_cursor:
+    ; Format the position sequence with the current row and column
+    mov dl, 10
+    div dl      ; Get quotient in al (tens) and remainder in ah (ones)
+    add al, '0'
+    add ah, '0'
+    mov [POS_TEMPLATE + 3], ah
+    mov [POS_TEMPLATE + 2], al
+
+    mov eax, ebx
+    mov dl, 10
+    div dl 
+    add al, '0'
+    add ah, '0'
+    mov [POS_TEMPLATE + 6], ah
+    mov [POS_TEMPLATE + 5], al
+
+    ; Write the position sequence to move the cursor
+    mov eax, SYS_WRITE
+    mov ebx, STDOUT
+    mov ecx, POS_TEMPLATE
+    mov edx, POS_LEN
+    int 0x80
+    ret
