@@ -21,11 +21,12 @@ section .text
     extern clear_row
     extern get_keypress
     extern print
+    extern move_cursor
 
 _start:
     call init
-	call draw_screen
-	call wait_for_s
+	call draw_screen 
+    call wait_for_s
     cmp dword [game_quit], 1
     je exit
 	call clear_game_area

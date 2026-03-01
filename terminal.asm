@@ -154,6 +154,7 @@ print:
 
 move_cursor:
     ; Format the position sequence with the current row and column
+    pusha
     mov dl, 10
     div dl      ; Get quotient in al (tens) and remainder in ah (ones)
     add al, '0'
@@ -175,4 +176,5 @@ move_cursor:
     mov ecx, POS_TEMPLATE
     mov edx, POS_LEN
     int 0x80
+    popa
     ret

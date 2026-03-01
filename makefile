@@ -1,9 +1,9 @@
-fallingblocks: terminal.asm fallingblocks.asm 
+fallingblocks: terminal.asm fallingblocks.asm choose_block.asm clear_rows.asm clear_game_area.asm update_score.asm draw_current_block.asm check_collision.asm
 	nasm -f elf32 -o terminal.o terminal.asm
 	nasm -f elf32 -o fallingblocks.o fallingblocks.asm
 	ld -m elf_i386 -o fallingblocks fallingblocks.o terminal.o
 
-debug: terminal.asm fallingblocks.asm
+debug: terminal.asm fallingblocks.asm choose_block.asm clear_rows.asm clear_game_area.asm update_score.asm draw_current_block.asm check_collision.asm
 	nasm -f elf32 -g -F dwarf -o terminal.o terminal.asm
 	nasm -f elf32 -g -F dwarf -o fallingblocks.o fallingblocks.asm
 	ld -m elf_i386 -o fallingblocks fallingblocks.o terminal.o
