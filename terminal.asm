@@ -13,10 +13,10 @@ section .data
     TCSETS equ 0x5402
     TERMIOS_SIZE equ 60
     C_LFLAG_OFFSET equ 12
-    C_CC_OFFSET equ 16
-    VMIN equ 0x6
-    VTIME equ 0x7
-    ICANON equ 0x4
+    C_CC_OFFSET equ 17
+    VMIN equ 0x5
+    VTIME equ 0x6
+    ICANON equ 0x2
     ECHO equ 0x8
     SYS_IOCTL equ 54
     SYS_WRITE equ 4
@@ -78,7 +78,7 @@ set_terminal_mode:
 
     ; Modify the icanon and echo bits in the c_lflag of the buffer
     mov eax, [termios + C_LFLAG_OFFSET]
-    and eax, 0xFFFFFFF5
+    and eax, ~(ICANON | ECHO)
     mov [termios + C_LFLAG_OFFSET], eax
 
     ; Set the VMIN and VTIME control characters to 0 for non-blocking read
